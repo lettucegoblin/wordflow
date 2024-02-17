@@ -96,6 +96,9 @@ button {
   }
 
   .name {
+    &[is-hidden] {
+      display: none;
+    }
     font-weight: 800;
     color: var(--gray-600);
   }
@@ -307,6 +310,12 @@ button {
   }
 }
 
+.api-input{
+  &[is-hidden] {
+    display: none !important;
+  }
+}
+
 .add-button {
   line-height: 1;
   display: flex;
@@ -339,6 +348,10 @@ button {
     &:active {
       background-color: var(--gray-600);
     }
+  }
+
+  &[is-hidden] {
+    display: none;
   }
 
   &[is-disabled] {

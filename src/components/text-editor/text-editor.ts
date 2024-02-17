@@ -8,7 +8,8 @@ import {
   SupportedRemoteModel,
   SupportedLocalModel,
   supportedModelReverseLookup,
-  ModelFamily
+  ModelFamily,
+  SupportedCustomEndpoint
 } from '../wordflow/user-config';
 import { textGenGpt } from '../../llms/gpt';
 import { textGenWordflow } from '../../llms/wordflow';
@@ -1032,6 +1033,21 @@ export class WordflowTextEditor extends LitElement {
           promptData.userID,
           'gpt-3.5-free',
           USE_CACHE
+        );
+        break;
+      }
+
+      case SupportedCustomEndpoint['openai']: {
+        runRequest = textGenGpt(
+          this.userConfig.llmAPIKeys[ModelFamily.openAICustom],
+          'text-gen',
+          curPrompt,
+          promptData.temperature,
+          'gpt-3.5-turbo',
+          USE_CACHE,
+          [],
+          '',
+          this.userConfig.customEndpoints[SupportedCustomEndpoint['openai']]
         );
         break;
       }

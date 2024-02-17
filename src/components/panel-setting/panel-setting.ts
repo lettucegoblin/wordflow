@@ -13,6 +13,7 @@ import {
   UserConfig,
   SupportedRemoteModel,
   SupportedLocalModel,
+  SupportedCustomEndpoint as SupportedCustomEndpoint,
   supportedModelReverseLookup,
   ModelFamily,
   modelFamilyMap
@@ -35,11 +36,12 @@ import type { TextGenLocalWorkerMessage } from '../../llms/web-llm';
 import infoIcon from '../../images/icon-info.svg?raw';
 import componentCSS from './panel-setting.css?inline';
 
-const apiKeyMap: Record<SupportedRemoteModel, string> = {
+const apiKeyMap: Record<SupportedRemoteModel | SupportedCustomEndpoint, string> = {
   [SupportedRemoteModel['gpt-3.5']]: 'Open AI',
   [SupportedRemoteModel['gpt-3.5-free']]: 'Open AI',
   [SupportedRemoteModel['gpt-4']]: 'Open AI',
-  [SupportedRemoteModel['gemini-pro']]: 'Gemini'
+  [SupportedRemoteModel['gemini-pro']]: 'Gemini',
+  [SupportedCustomEndpoint['openai']]: 'Open AI Compatible Endpoint'
 };
 
 const apiKeyDescriptionMap: Record<ModelFamily, TemplateResult> = {
@@ -51,6 +53,7 @@ const apiKeyDescriptionMap: Record<ModelFamily, TemplateResult> = {
     <a href="https://makersuite.google.com/" target="_blank"
       >Google AI Studio</a
     >`,
+  [ModelFamily.openAICustom]: html`Optional API key for custom Open AI endpoints`,
   [ModelFamily.local]: html``
 };
 
@@ -61,6 +64,7 @@ const localModelSizeMap: Record<SupportedLocalModel, string> = {
   // [SupportedLocalModel['gpt-2']]: '311 MB'
   // [SupportedLocalModel['mistral-7b-v0.2']]: '3.5 GB'
 };
+
 
 const LOCAL_MODEL_MESSAGES = {
   default: html`Run LLMs privately in your browser with
@@ -89,7 +93,7 @@ export class WordflowPanelSetting extends LitElement {
   textGenLocalWorker!: Worker;
 
   @state()
-  selectedModel: SupportedRemoteModel | SupportedLocalModel;
+  selectedModel: SupportedRemoteModel | SupportedLocalModel | SupportedCustomEndpoint;
 
   get selectedModelFamily() {
     return modelFamilyMap[this.selectedModel];
@@ -103,6 +107,9 @@ export class WordflowPanelSetting extends LitElement {
 
   @state()
   apiInputValue = '';
+
+  @state()
+  apiEndpointInputValue = '';
 
   @state()
   showModelLoader = false;
@@ -337,10 +344,15 @@ export class WordflowPanelSetting extends LitElement {
   addButtonClicked(e: MouseEvent) {
     e.preventDefault();
 
-    if (
-      this.userConfig.llmAPIKeys[this.selectedModelFamily] ===
+    let button = e.currentTarget as HTMLElement;
+    
+
+    if (button.id !== 'add-button-endpoint' &&
+      (
+        this.userConfig.llmAPIKeys[this.selectedModelFamily] ===
         this.apiInputValue ||
-      this.apiInputValue === ''
+        this.apiInputValue === ''
+      )
     ) {
       return;
     }
@@ -380,6 +392,29 @@ export class WordflowPanelSetting extends LitElement {
           'gpt-3.5-turbo',
           false
         ).then(value => {
+          this.showModelLoader = false;
+          this.textGenMessageHandler(
+            this.selectedModel as SupportedRemoteModel,
+            apiKey,
+            value
+          );
+        });
+        break;
+      }
+
+      case ModelFamily.openAICustom: {
+        textGenGpt(
+          apiKey,
+          requestID,
+          prompt,
+          temperature,
+          'gpt-3.5-turbo',
+          false,
+          [],
+          '',
+          this.apiEndpointInputValue
+        ).then(value => {
+          this.userConfig.customEndpoints[SupportedCustomEndpoint['openai']] = this.apiEndpointInputValue;
           this.showModelLoader = false;
           this.textGenMessageHandler(
             this.selectedModel as SupportedRemoteModel,
@@ -435,7 +470,15 @@ export class WordflowPanelSetting extends LitElement {
       this._updateSelectedLocalModelInCache();
 
       // Only set preferred LLM to this model after activation
-    } else {
+    } else if(SupportedCustomEndpoint[select.value as keyof typeof SupportedCustomEndpoint] 
+      !== undefined){
+      this.selectedModel = 
+      SupportedCustomEndpoint[select.value as keyof typeof SupportedCustomEndpoint];
+      this.apiInputValue = this.userConfig.llmAPIKeys[this.selectedModelFamily];
+      this.apiEndpointInputValue = this.userConfig.customEndpoints[this.selectedModel as SupportedCustomEndpoint];
+      this.userConfigManager.setPreferredLLM(this.selectedModel);
+    }
+    else {
       console.error('Unknown model selected');
     }
   }
@@ -506,6 +549,7 @@ export class WordflowPanelSetting extends LitElement {
     // Compose the model select options
     let remoteModelSelectOptions = html``;
     let localModelSelectOptions = html``;
+    let customEndpointSelectOptions = html``;
 
     // Remote models
     for (const [name, label] of Object.entries(SupportedRemoteModel)) {
@@ -516,6 +560,11 @@ export class WordflowPanelSetting extends LitElement {
     // Local models
     for (const [name, label] of Object.entries(SupportedLocalModel)) {
       localModelSelectOptions = html`${localModelSelectOptions}
+        <option value=${name}>${label}</option> `;
+    }
+    // Custom Endpoints Types
+    for (const [name, label] of Object.entries(SupportedCustomEndpoint)) {
+      customEndpointSelectOptions = html`${customEndpointSelectOptions}
         <option value=${name}>${label}</option> `;
     }
 
@@ -566,6 +615,10 @@ export class WordflowPanelSetting extends LitElement {
                   <optgroup label="Local LLMs">
                     ${localModelSelectOptions}
                   </optgroup>
+
+                  <optgroup label="Custom Endpoints(urls)">
+                    ${customEndpointSelectOptions}
+                  </optgroup>
                 </select>
               </span>
             </section>
@@ -587,7 +640,7 @@ export class WordflowPanelSetting extends LitElement {
                   }}
                 >
                   <div class="name">
-                    ${apiKeyMap[this.selectedModel as SupportedRemoteModel]} API
+                    ${apiKeyMap[this.selectedModel as SupportedRemoteModel | SupportedCustomEndpoint]} API
                     Key
                   </div>
                   <span class="svg-icon info-icon"
@@ -612,6 +665,30 @@ export class WordflowPanelSetting extends LitElement {
                     @input=${(e: InputEvent) => {
                       const element = e.currentTarget as HTMLInputElement;
                       this.apiInputValue = element.value;
+                      this.apiEndpointInputValue = this.userConfig.customEndpoints[
+                        this.selectedModel as SupportedCustomEndpoint
+                      ];
+                    }}
+                  />
+                  <div class="name" ?is-hidden=${this.selectedModelFamily !== ModelFamily.openAICustom}>
+                    Custom Endpoint
+                  </div>
+                  <input
+                    type="text"
+                    ?is-hidden=${this.selectedModelFamily !== ModelFamily.openAICustom}
+                    class="content-text api-input"
+                    id="text-input-endpoint-url"
+                    value="${this.userConfig.customEndpoints[
+                      this.selectedModel as SupportedCustomEndpoint
+                    ]}"
+                    placeholder="Custom Endpoint URL"
+                    
+                    @input=${(e: InputEvent) => {
+                      const element = e.currentTarget as HTMLInputElement;
+                      this.apiEndpointInputValue = element.value;
+                      this.apiInputValue = this.userConfig.llmAPIKeys[
+                        this.selectedModelFamily
+                      ]
                     }}
                   />
                   <div class="right-loader">
@@ -627,9 +704,37 @@ export class WordflowPanelSetting extends LitElement {
                 </div>
                 <button
                   class="add-button"
+                  ?is-hidden=${this.selectedModelFamily !== ModelFamily.openAICustom}
+                  id="add-button-endpoint"
+                  ?has-set=${this.apiInputValue === '' ||
+                    this.userConfig.customEndpoints[
+                      this.selectedModel as SupportedCustomEndpoint
+                    ] === this.apiEndpointInputValue ? 
+                    ( this.userConfig.llmAPIKeys[
+                      this.selectedModelFamily
+                    ] === this.apiInputValue ) || this.apiInputValue === '':
+                    false
+                     }
+                  @click=${(e: MouseEvent) => this.addButtonClicked(e)}
+                >
+                  ${this.userConfig.llmAPIKeys[this.selectedModelFamily] === ''
+                    ? 'Add'
+                    : 'Update'}
+                </button>
+                ${
+                  console.log(this.userConfig.customEndpoints[this.selectedModel as SupportedCustomEndpoint],
+                    this.apiEndpointInputValue,
+                    this.userConfig.customEndpoints[this.selectedModel as SupportedCustomEndpoint] === this.apiEndpointInputValue
+                    )
+                }
+                <button
+                  class="add-button"
+                  
+                  ?is-hidden=${this.selectedModelFamily === ModelFamily.openAICustom}
                   ?has-set=${this.userConfig.llmAPIKeys[
                     this.selectedModelFamily
-                  ] === this.apiInputValue || this.apiInputValue === ''}
+                  ] === this.apiInputValue ||
+                  this.apiEndpointInputValue === ''}
                   @click=${(e: MouseEvent) => this.addButtonClicked(e)}
                 >
                   ${this.userConfig.llmAPIKeys[this.selectedModelFamily] === ''

@@ -30,9 +30,12 @@ export type TextGenMessage =
  * @param requestID Worker request ID
  * @param prompt Prompt to give to the GPT model
  * @param temperature Model temperature
+ * @param model GPT 3.5 or GPT 4
+ * @param useCache Whether to use the cache
  * @param stopSequences Strings to stop the generation
  * @param detail Extra string information to include (will be returned)
- * @param model GPT 3.5 or GPT 4
+ * @param endpoint The GPT API endpoint
+ * 
  */
 export const textGenGpt = async (
   apiKey: string,
@@ -42,7 +45,8 @@ export const textGenGpt = async (
   model: 'gpt-3.5-turbo' | 'gpt-4-1106-preview',
   useCache: boolean = false,
   stopSequences: string[] = [],
-  detail: string = ''
+  detail: string = '',
+  endpoint: string = 'https://api.openai.com/v1/chat/completions'
 ) => {
   // Compile the prompt into a chat format
   const message: ChatMessage = {
@@ -76,7 +80,7 @@ export const textGenGpt = async (
     return message;
   }
 
-  const url = 'https://api.openai.com/v1/chat/completions';
+  const url = endpoint;
 
   const requestOptions: RequestInit = {
     method: 'POST',

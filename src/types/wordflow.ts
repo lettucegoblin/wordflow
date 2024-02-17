@@ -3,7 +3,8 @@
 import type { ChatCompletion } from '../types/gpt-types';
 import {
   SupportedLocalModel,
-  SupportedRemoteModel
+  SupportedRemoteModel,
+  SupportedCustomEndpoint
 } from '../components/wordflow/user-config';
 
 export type PromptRunSuccessResponse = {
@@ -25,7 +26,7 @@ export interface PromptRunPostBody {
   text: string;
   temperature: number;
   userID: string;
-  model: keyof typeof SupportedLocalModel | keyof typeof SupportedRemoteModel;
+  model: keyof typeof SupportedLocalModel | keyof typeof SupportedRemoteModel | keyof typeof SupportedCustomEndpoint;
 }
 
 export interface TagData {

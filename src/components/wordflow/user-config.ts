@@ -17,9 +17,17 @@ export enum SupportedRemoteModel {
   'gemini-pro' = 'Gemini Pro'
 }
 
+export enum SupportedCustomEndpoint {
+  'openai' = 'Open AI Compatible Endpoint',
+//'ollama' = 'Ollama Compatible Endpoint', // https://github.com/ollama/ollama/blob/main/docs/api.md
+//'llama.cpp' = 'Llama.cpp Compatible Endpoint', //https://github.com/ggerganov/llama.cpp/tree/master/examples/server
+// ...
+}
+
 export const supportedModelReverseLookup: Record<
-  SupportedRemoteModel | SupportedLocalModel,
-  keyof typeof SupportedRemoteModel | keyof typeof SupportedLocalModel
+  SupportedRemoteModel | SupportedLocalModel | SupportedCustomEndpoint,
+  keyof typeof SupportedRemoteModel | keyof typeof SupportedLocalModel 
+  | keyof typeof SupportedCustomEndpoint
 > = {
   [SupportedRemoteModel['gpt-3.5-free']]: 'gpt-3.5-free',
   [SupportedRemoteModel['gpt-3.5']]: 'gpt-3.5',
@@ -27,7 +35,8 @@ export const supportedModelReverseLookup: Record<
   [SupportedRemoteModel['gemini-pro']]: 'gemini-pro',
   [SupportedLocalModel['tinyllama-1.1b']]: 'tinyllama-1.1b',
   [SupportedLocalModel['llama-2-7b']]: 'llama-2-7b',
-  [SupportedLocalModel['phi-2']]: 'phi-2'
+  [SupportedLocalModel['phi-2']]: 'phi-2',
+  [SupportedCustomEndpoint['openai']]: 'openai'
   // [SupportedLocalModel['gpt-2']]: 'gpt-2'
   // [SupportedLocalModel['mistral-7b-v0.2']]: 'mistral-7b-v0.2'
 };
@@ -35,11 +44,12 @@ export const supportedModelReverseLookup: Record<
 export enum ModelFamily {
   google = 'Google',
   openAI = 'Open AI',
-  local = 'Local'
+  local = 'Local',
+  openAICustom = 'Open AI Custom'
 }
 
 export const modelFamilyMap: Record<
-  SupportedRemoteModel | SupportedLocalModel,
+  SupportedRemoteModel | SupportedLocalModel | SupportedCustomEndpoint,
   ModelFamily
 > = {
   [SupportedRemoteModel['gpt-3.5']]: ModelFamily.openAI,
@@ -50,20 +60,22 @@ export const modelFamilyMap: Record<
   [SupportedLocalModel['llama-2-7b']]: ModelFamily.local,
   // [SupportedLocalModel['gpt-2']]: ModelFamily.local
   // [SupportedLocalModel['mistral-7b-v0.2']]: ModelFamily.local
-  [SupportedLocalModel['phi-2']]: ModelFamily.local
+  [SupportedLocalModel['phi-2']]: ModelFamily.local,
+  [SupportedCustomEndpoint['openai']]: ModelFamily.openAICustom
 };
 
 export interface UserConfig {
+  customEndpoints: Record<SupportedCustomEndpoint, string>;
   llmAPIKeys: Record<ModelFamily, string>;
-  preferredLLM: SupportedRemoteModel | SupportedLocalModel;
+  preferredLLM: SupportedRemoteModel | SupportedLocalModel | SupportedCustomEndpoint;
 }
 
 export class UserConfigManager {
   restoreFinished: Promise<void>;
   updateUserConfig: (userConfig: UserConfig) => void;
-
+  #customEndpoints: Record<SupportedCustomEndpoint, string>;
   #llmAPIKeys: Record<ModelFamily, string>;
-  #preferredLLM: SupportedRemoteModel | SupportedLocalModel;
+  #preferredLLM: SupportedRemoteModel | SupportedLocalModel | SupportedCustomEndpoint;
 
   constructor(updateUserConfig: (userConfig: UserConfig) => void) {
     this.updateUserConfig = updateUserConfig;
@@ -71,9 +83,13 @@ export class UserConfigManager {
     this.#llmAPIKeys = {
       [ModelFamily.openAI]: '',
       [ModelFamily.google]: '',
-      [ModelFamily.local]: ''
+      [ModelFamily.local]: '',
+      [ModelFamily.openAICustom]: ''
     };
     this.#preferredLLM = SupportedRemoteModel['gpt-3.5-free'];
+    this.#customEndpoints = {
+      [SupportedCustomEndpoint.openai]: 'http://localhost:8080/v1/chat/completions'
+    };
     this._broadcastUserConfig();
 
     this.restoreFinished = this._restoreFromStorage();
@@ -87,7 +103,7 @@ export class UserConfigManager {
     this._broadcastUserConfig();
   }
 
-  setPreferredLLM(model: SupportedRemoteModel | SupportedLocalModel) {
+  setPreferredLLM(model: SupportedRemoteModel | SupportedLocalModel | SupportedCustomEndpoint) {
     this.#preferredLLM = model;
     this._syncStorage();
     this._broadcastUserConfig();
@@ -120,6 +136,7 @@ export class UserConfigManager {
    */
   _constructConfig(): UserConfig {
     const config: UserConfig = {
+      customEndpoints: this.#customEndpoints,
       llmAPIKeys: this.#llmAPIKeys,
       preferredLLM: this.#preferredLLM
     };

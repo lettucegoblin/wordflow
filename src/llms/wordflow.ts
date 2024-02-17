@@ -6,7 +6,8 @@ import type {
 } from '../types/wordflow';
 import {
   SupportedRemoteModel,
-  SupportedLocalModel
+  SupportedLocalModel,
+  SupportedCustomEndpoint
 } from '../components/wordflow/user-config';
 import { config } from '../config/config';
 
@@ -29,7 +30,7 @@ export const textGenWordflow = async (
   inputText: string,
   temperature: number,
   userID: string,
-  model: keyof typeof SupportedRemoteModel | keyof typeof SupportedLocalModel,
+  model: keyof typeof SupportedRemoteModel | keyof typeof SupportedLocalModel | keyof typeof SupportedCustomEndpoint,
   useCache: boolean = false,
   detail: string = ''
 ): Promise<TextGenMessage> => {
