@@ -88,13 +88,19 @@ export class UserConfigManager {
     };
     this.#preferredLLM = SupportedRemoteModel['gpt-3.5-free'];
     this.#customEndpoints = {
-      [SupportedCustomEndpoint.openai]: 'http://localhost:8080/v1/chat/completions'
+      [SupportedCustomEndpoint.openai]: ''
     };
     this._broadcastUserConfig();
 
     this.restoreFinished = this._restoreFromStorage();
 
     // this._cleanStorage();
+  }
+
+  setCustomEndpoint(model: SupportedCustomEndpoint, endpoint: string) {
+    this.#customEndpoints[model] = endpoint;
+    this._syncStorage();
+    this._broadcastUserConfig();
   }
 
   setAPIKey(modelFamily: ModelFamily, key: string) {
@@ -118,6 +124,7 @@ export class UserConfigManager {
     if (config) {
       this.#llmAPIKeys = config.llmAPIKeys;
       this.#preferredLLM = config.preferredLLM;
+      this.#customEndpoints = config.customEndpoints;
     }
     this._broadcastUserConfig();
   }

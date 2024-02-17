@@ -4,7 +4,7 @@
   "version": "0.1.6",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3000",
+    "dev": "vite --port 3000 --host 0.0.0.0",
     "build": "tsc && vite build",
     "build:github": "tsc && vite build --mode github",
     "deploy:github": "pnpm run build:github && pnpm gh-pages -m \"Deploy $(git log '--format=format:%H' main -1)\" -d ./dist",

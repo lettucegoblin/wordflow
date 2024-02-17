@@ -150,7 +150,9 @@ export class WordflowPanelSetting extends LitElement {
     if (changedProperties.has('userConfig')) {
       if (this.selectedModel !== this.userConfig.preferredLLM) {
         this.selectedModel = this.userConfig.preferredLLM;
-
+        this.apiInputValue = this.userConfig.llmAPIKeys[this.selectedModelFamily];
+        this.apiEndpointInputValue = this.userConfig.customEndpoints[this.selectedModel as SupportedCustomEndpoint];
+        
         // Need to manually update the select element
         const selectElement = this.shadowRoot!.querySelector(
           '.model-mode-select'
@@ -229,9 +231,10 @@ export class WordflowPanelSetting extends LitElement {
 
   // ===== Event Methods ======
   textGenMessageHandler = (
-    model: SupportedRemoteModel,
+    model: SupportedRemoteModel | SupportedCustomEndpoint,
     apiKey: string,
-    message: TextGenMessage
+    message: TextGenMessage,
+    customEndpoint: string = ''
   ) => {
     switch (message.command) {
       case 'finishTextGen': {
@@ -242,6 +245,10 @@ export class WordflowPanelSetting extends LitElement {
 
           // Add the api key to the storage
           this.userConfigManager.setAPIKey(modelFamily, apiKey);
+
+          if(modelFamily === ModelFamily.openAICustom){
+            this.userConfigManager.setCustomEndpoint(model as SupportedCustomEndpoint, customEndpoint);
+          }
 
           // Also use set this model as preferred model
           if (this.selectedModel === model) {
@@ -366,6 +373,7 @@ export class WordflowPanelSetting extends LitElement {
 
     // Parse the api key
     const apiKey = this.apiInputValue;
+    const customEndpoint = this.apiEndpointInputValue;
     this.showModelLoader = true;
 
     switch (this.selectedModelFamily) {
@@ -412,14 +420,14 @@ export class WordflowPanelSetting extends LitElement {
           false,
           [],
           '',
-          this.apiEndpointInputValue
+          customEndpoint
         ).then(value => {
-          this.userConfig.customEndpoints[SupportedCustomEndpoint['openai']] = this.apiEndpointInputValue;
           this.showModelLoader = false;
           this.textGenMessageHandler(
             this.selectedModel as SupportedRemoteModel,
             apiKey,
-            value
+            value,
+            customEndpoint
           );
         });
         break;
@@ -665,9 +673,7 @@ export class WordflowPanelSetting extends LitElement {
                     @input=${(e: InputEvent) => {
                       const element = e.currentTarget as HTMLInputElement;
                       this.apiInputValue = element.value;
-                      this.apiEndpointInputValue = this.userConfig.customEndpoints[
-                        this.selectedModel as SupportedCustomEndpoint
-                      ];
+                      
                     }}
                   />
                   <div class="name" ?is-hidden=${this.selectedModelFamily !== ModelFamily.openAICustom}>
@@ -706,13 +712,12 @@ export class WordflowPanelSetting extends LitElement {
                   class="add-button"
                   ?is-hidden=${this.selectedModelFamily !== ModelFamily.openAICustom}
                   id="add-button-endpoint"
-                  ?has-set=${this.apiInputValue === '' ||
-                    this.userConfig.customEndpoints[
+                  ?has-set=${this.userConfig.customEndpoints[
                       this.selectedModel as SupportedCustomEndpoint
                     ] === this.apiEndpointInputValue ? 
                     ( this.userConfig.llmAPIKeys[
-                      this.selectedModelFamily
-                    ] === this.apiInputValue ) || this.apiInputValue === '':
+                      this.selectedModelFamily as ModelFamily
+                    ] === this.apiInputValue ):
                     false
                      }
                   @click=${(e: MouseEvent) => this.addButtonClicked(e)}
@@ -721,12 +726,7 @@ export class WordflowPanelSetting extends LitElement {
                     ? 'Add'
                     : 'Update'}
                 </button>
-                ${
-                  console.log(this.userConfig.customEndpoints[this.selectedModel as SupportedCustomEndpoint],
-                    this.apiEndpointInputValue,
-                    this.userConfig.customEndpoints[this.selectedModel as SupportedCustomEndpoint] === this.apiEndpointInputValue
-                    )
-                }
+                
                 <button
                   class="add-button"
                   
